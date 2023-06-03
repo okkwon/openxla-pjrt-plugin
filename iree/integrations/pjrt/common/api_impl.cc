@@ -19,6 +19,16 @@
 
 using iree::vm::retain_ref;
 
+#ifdef IREE_TRACE_SCOPE0
+#undef IREE_TRACE_SCOPE0
+#define IREE_TRACE_SCOPE0(msg) printf(#msg "\n")
+#endif  // IREE_TRACE_SCOPE0
+
+#ifdef IREE_TRACE_SCOPE
+#undef IREE_TRACE_SCOPE
+#define IREE_TRACE_SCOPE(msg) printf("    " #msg "\n")
+#endif  // IREE_TRACE_SCOPE
+
 namespace iree::pjrt {
 
 // Some general conversion functions for managing around some API layering
@@ -371,6 +381,7 @@ void BufferInstance::BindApi(PJRT_Api* api) {
       +[](PJRT_Buffer_Destroy_Args* args) -> PJRT_Error* {
     IREE_TRACE_SCOPE0("PJRT_Buffer_Destroy");
     BufferInstance* buffer = BufferInstance::Unwrap(args->buffer);
+    printf("  buffer_view = %p\n", buffer->buffer_view());
     iree_status_t status = buffer->AsyncDeallocate();
     delete buffer;
     return MakeError(status);
@@ -378,11 +389,12 @@ void BufferInstance::BindApi(PJRT_Api* api) {
   api->PJRT_Buffer_OnDeviceTrimmedShape =
       +[](PJRT_Buffer_OnDeviceTrimmedShape_Args* args) -> PJRT_Error* {
     IREE_TRACE_SCOPE0("PJRT_Buffer_OnDeviceTrimmedShape");
+    BufferInstance* buffer = BufferInstance::Unwrap(args->buffer);
+    printf("  buffer_view = %p\n", buffer->buffer_view());
     auto impl = [&]() -> iree_status_t {
       // TODO: This function is terrible and not exposed properly to C.
       // It is slated to be deleted...
       // See Google bug b/238999986
-      BufferInstance* buffer = BufferInstance::Unwrap(args->buffer);
       xla::Shape* shape;
       IREE_RETURN_IF_ERROR(buffer->GetXlaShape(&shape));
 
@@ -405,6 +417,7 @@ void BufferInstance::BindApi(PJRT_Api* api) {
       +[](PJRT_Buffer_ToHostBuffer_Args* args) -> PJRT_Error* {
     IREE_TRACE_SCOPE0("PJRT_Buffer_ToHostBuffer");
     BufferInstance* buffer = BufferInstance::Unwrap(args->src);
+    printf("  buffer_view = %p\n", buffer->buffer_view());
     if (!args->dst) {
       // Size query.
       return MakeError(buffer->GetHostSizeInBytes(&args->dst_size));
@@ -419,14 +432,17 @@ void BufferInstance::BindApi(PJRT_Api* api) {
       +[](PJRT_Buffer_OnDeviceSizeInBytes_Args* args) -> PJRT_Error* {
     IREE_TRACE_SCOPE0("PJRT_Buffer_OnDeviceSizeInBytes");
     BufferInstance* buffer = BufferInstance::Unwrap(args->buffer);
+    printf("  buffer_view = %p\n", buffer->buffer_view());
     iree_device_size_t size =
         iree_hal_buffer_view_byte_length(buffer->buffer_view());
     args->on_device_size_in_bytes = size;
+    printf("  size = %zu\n", size);
     return nullptr;
   };
   api->PJRT_Buffer_Delete = +[](PJRT_Buffer_Delete_Args* args) -> PJRT_Error* {
     IREE_TRACE_SCOPE0("PJRT_Buffer_Delete");
     BufferInstance* buffer = BufferInstance::Unwrap(args->buffer);
+    printf("  buffer_view = %p\n", buffer->buffer_view());
     buffer->AsyncDeallocate();
     return nullptr;
   };
@@ -434,29 +450,40 @@ void BufferInstance::BindApi(PJRT_Api* api) {
       +[](PJRT_Buffer_IsDeleted_Args* args) -> PJRT_Error* {
     IREE_TRACE_SCOPE0("PJRT_Buffer_IsDeleted");
     BufferInstance* buffer = BufferInstance::Unwrap(args->buffer);
+    printf("  buffer_view = %p\n", buffer->buffer_view());
+    printf("  is_deleted = %d\n", buffer->is_deleted());
     args->is_deleted = buffer->is_deleted();
     return nullptr;
   };
   api->PJRT_Buffer_CopyToDevice =
       +[](PJRT_Buffer_CopyToDevice_Args* args) -> PJRT_Error* {
     IREE_TRACE_SCOPE0("PJRT_Buffer_CopyToDevice");
+    BufferInstance* buffer = BufferInstance::Unwrap(args->buffer);
+    printf("  buffer_view = %p\n", buffer->buffer_view());
     return MakeError(iree_make_status(IREE_STATUS_UNIMPLEMENTED,
                                       "PJRT_Buffer_CopyToDevice"));
   };
   api->PJRT_Buffer_IsOnCpu =
       +[](PJRT_Buffer_IsOnCpu_Args* args) -> PJRT_Error* {
     IREE_TRACE_SCOPE0("PJRT_Buffer_IsOnCpu");
-    args->is_on_cpu = BufferInstance::Unwrap(args->buffer)->is_on_cpu();
+    BufferInstance* buffer = BufferInstance::Unwrap(args->buffer);
+    printf("  buffer_view = %p\n", buffer->buffer_view());
+    printf("  is_on_cpu = %d\n", buffer->is_on_cpu());
+    args->is_on_cpu = buffer->is_on_cpu();
     return nullptr;
   };
   api->PJRT_Buffer_Device = +[](PJRT_Buffer_Device_Args* args) -> PJRT_Error* {
     IREE_TRACE_SCOPE0("PJRT_Buffer_Device");
-    args->device = BufferInstance::Unwrap(args->buffer)->device();
+    BufferInstance* buffer = BufferInstance::Unwrap(args->buffer);
+    printf("  buffer_view = %p\n", buffer->buffer_view());
+    args->device = buffer->device();
     return nullptr;
   };
   api->PJRT_Buffer_ReadyEvent =
       +[](PJRT_Buffer_ReadyEvent_Args* args) -> PJRT_Error* {
     IREE_TRACE_SCOPE0("PJRT_Buffer_ReadyEvent");
+    BufferInstance* buffer = BufferInstance::Unwrap(args->buffer);
+    printf("  buffer_view = %p\n", buffer->buffer_view());
     return MakeError(
         iree_make_status(IREE_STATUS_UNIMPLEMENTED, "PJRT_Buffer_ReadyEvent"));
   };
@@ -466,6 +493,7 @@ void BufferInstance::BindApi(PJRT_Api* api) {
       +[](PJRT_Buffer_UnsafePointer_Args* args) -> PJRT_Error* {
     IREE_TRACE_SCOPE0("PJRT_Buffer_UnsafePointer");
     BufferInstance* buffer = BufferInstance::Unwrap(args->buffer);
+    printf("  buffer_view = %p\n", buffer->buffer_view());
     iree_hal_buffer_t* hal_buffer =
         iree_hal_buffer_view_buffer(buffer->buffer_view());
     args->buffer_pointer = (uintptr_t)hal_buffer;
@@ -608,6 +636,7 @@ void DeviceDescription::BindApi(PJRT_Api* api) {
       +[](PJRT_DeviceDescription_Id_Args* args) -> PJRT_Error* {
     IREE_TRACE_SCOPE0("PJRT_DeviceDescription_Id");
     args->id = DeviceDescription::Unwrap(args->device_description)->client_id();
+    printf("  id = %d from client_id()\n", args->id);
     return nullptr;
   };
   api->PJRT_DeviceDescription_ProcessIndex =
@@ -615,6 +644,7 @@ void DeviceDescription::BindApi(PJRT_Api* api) {
     IREE_TRACE_SCOPE0("PJRT_DeviceDescription_ProcessIndex");
     args->process_index =
         DeviceDescription::Unwrap(args->device_description)->process_index();
+    printf("  process_index = %d\n", args->process_index);
     return nullptr;
   };
   api->PJRT_DeviceDescription_Attributes =
@@ -650,6 +680,7 @@ void DeviceDescription::BindApi(PJRT_Api* api) {
         DeviceDescription::Unwrap(args->device_description)->user_string();
     args->to_string = sv.data();
     args->to_string_size = sv.size();
+    printf("  to_string: %s\n", sv.data());
     return nullptr;
   };
 }
@@ -673,6 +704,7 @@ void DeviceInstance::BindApi(PJRT_Api* api) {
     IREE_TRACE_SCOPE0("PJRT_DeviceInstance_LocalHardwareId");
     args->local_hardware_id =
         DeviceInstance::Unwrap(args->device)->local_hardware_id();
+    printf("  local_hardware_id = %d\n", args->local_hardware_id);
     return nullptr;
   };
   api->PJRT_Device_GetDescription =
@@ -690,11 +722,15 @@ iree_status_t DeviceInstance::CreateFence(iree_hal_fence_t** out_fence) {
 }
 
 iree_status_t DeviceInstance::OpenDevice() {
+  printf("  OpenDevice()\n");
+
   if (device_) return iree_ok_status();
   IREE_RETURN_IF_ERROR(iree_hal_driver_create_device_by_id(
       driver_, /*device_id=*/info_.device_id(),
       /*param_count=*/0, /*params=*/nullptr, client_.host_allocator(),
       &device_));
+  printf("    iree_hal_driver_create_device_by_id(device_id = %zu)\n",
+         info_.device_id());
   IREE_RETURN_IF_ERROR(
       iree_hal_semaphore_create(device(), 0ull, &main_timeline_));
   IREE_RETURN_IF_ERROR(
@@ -956,13 +992,16 @@ void ClientInstance::BindApi(PJRT_Api* api) {
     auto* client = ClientInstance::Unwrap(args->client);
     args->platform_name = client->cached_platform_name().data();
     args->platform_name_size = client->cached_platform_name().size();
+    printf("  platform_name = %s\n", args->platform_name);
     return nullptr;
   };
   api->PJRT_Client_ProcessIndex =
       +[](PJRT_Client_ProcessIndex_Args* args) -> PJRT_Error* {
     IREE_TRACE_SCOPE0("PJRT_Client_ProcessIndex");
+    // args->process_index = 0;
     auto* client = ClientInstance::Unwrap(args->client);
     args->process_index = client->process_id();
+    printf("  process_index = %d\n", args->process_index);
     return nullptr;
   };
   api->PJRT_Client_PlatformVersion =
@@ -971,6 +1010,7 @@ void ClientInstance::BindApi(PJRT_Api* api) {
     auto* client = ClientInstance::Unwrap(args->client);
     args->platform_version = client->cached_platform_version().data();
     args->platform_version_size = client->cached_platform_version().size();
+    printf("  platform_version = %s\n", args->platform_version);
     return nullptr;
   };
   api->PJRT_Client_Devices =
@@ -980,6 +1020,7 @@ void ClientInstance::BindApi(PJRT_Api* api) {
     args->devices = const_cast<PJRT_Device**>(
         reinterpret_cast<PJRT_Device* const*>(devices.data()));
     args->num_devices = devices.size();
+    printf("  num_devices = %zu\n", args->num_devices);
     return nullptr;
   };
   api->PJRT_Client_AddressableDevices =
@@ -989,6 +1030,7 @@ void ClientInstance::BindApi(PJRT_Api* api) {
     args->addressable_devices = const_cast<PJRT_Device**>(
         reinterpret_cast<PJRT_Device* const*>(devices.data()));
     args->num_addressable_devices = devices.size();
+    printf("  num_addressable_devices = %zu\n", args->num_addressable_devices);
     return nullptr;
   };
   api->PJRT_Client_LookupDevice =
@@ -1003,6 +1045,7 @@ void ClientInstance::BindApi(PJRT_Api* api) {
                            (int)id_as_size, (int)devices.size()));
     }
     args->device = *devices[id_as_size];
+    printf("  id = %d\n", args->id);
     return nullptr;
   };
   api->PJRT_Client_Compile =
@@ -1136,6 +1179,7 @@ static int32_t ParseEnvI32(const char* env, int32_t default_value) {
 iree_status_t ClientInstance::ReadSPMDInfoFromEnvVars() {
   // Check if OpenMPI is used first.
   if (CheckEnvVar("OMPI_COMM_WORLD_SIZE")) {
+    printf("OMPI_COMM_WORLD_SIZE is set\n");
     num_processes_ = ParseEnvI32("OMPI_COMM_WORLD_SIZE", 1);
     process_id_ = ParseEnvI32("OMPI_COMM_WORLD_RANK", 0);
     // TODO: support multiple devices per client.
@@ -1158,6 +1202,8 @@ iree_status_t ClientInstance::InitializeVM() {
 iree_status_t ClientInstance::PopulateDevices() {
   IREE_RETURN_IF_ERROR(iree_hal_driver_query_available_devices(
       driver_, host_allocator_, &device_info_count_, &device_infos_));
+
+  printf("PolulateDevices(), device_info_count = %ld\n", device_info_count_);
 
   devices_.resize(device_info_count_);
   for (iree_host_size_t i = 0; i < device_info_count_; ++i) {
@@ -1528,6 +1574,7 @@ void ExecutableImage::BindApi(PJRT_Api* api) {
     IREE_TRACE_SCOPE0("PJRT_Executable_NumPartitions");
     // This should be updated once iree supports partitioning.
     args->num_partitions = 1;
+    printf("  num_partitions = %zu\n", args->num_partitions);
     return nullptr;
   };
   api->PJRT_Executable_NumReplicas =
@@ -1535,6 +1582,7 @@ void ExecutableImage::BindApi(PJRT_Api* api) {
     IREE_TRACE_SCOPE0("PJRT_Executable_NumReplicas");
     // This should be updated once iree supports replicas.
     args->num_replicas = 1;
+    printf("  num_replicas = %zu\n", args->num_replicas);
     return nullptr;
   };
   api->PJRT_Executable_Serialize =
@@ -1693,6 +1741,7 @@ iree_status_t LoadedExecutableInstance::GetArgResultCount(
 
 iree_status_t LoadedExecutableInstance::BatchExecute(
     PJRT_LoadedExecutable_Execute_Args* args) {
+  printf("  BatchExecute()\n");
   // Early exit for unsupported features and illegal input.
   if (args->execute_device) {
     return iree_make_status(IREE_STATUS_UNIMPLEMENTED,
@@ -1707,6 +1756,8 @@ iree_status_t LoadedExecutableInstance::BatchExecute(
 
   // Make sure loaded.
   IREE_RETURN_IF_ERROR(LoadAll());
+
+  printf("    LoadAll()\n");
 
   // Timeline setup. There are two timelines that we synchronize to:
   // the main execution timeline, which preserves as-called ordering to
@@ -1778,6 +1829,8 @@ iree_status_t LoadedExecutableInstance::BatchExecute(
     iree_vm_list_push_ref_retain(inv.inputs.get(), inv.signal_fence);
   }
 
+  printf("    Initialize invocation\n");
+
   // Issue invocations.
   // TODO: Switch to using the async API. I've tried to structure this
   // so that we can move to that. Obviously important before we have more
@@ -1801,6 +1854,7 @@ iree_status_t LoadedExecutableInstance::BatchExecute(
                        inv.res_exe->main_function, IREE_VM_INVOCATION_FLAG_NONE,
                        /*policy=*/nullptr, inv.inputs.get(), inv.outputs.get(),
                        allocator));
+    printf("    iree_vm_invoke()\n");
     // Any invocation that fails needs a barrier so that signal fence is
     // incremented otherwise future waits will fail. We do this instead of
     // incrementing as only a subset of devices may fail.
@@ -1813,6 +1867,8 @@ iree_status_t LoadedExecutableInstance::BatchExecute(
           iree_hal_fence_semaphore_list(inv.signal_fence.get())));
     }
   }
+
+  printf("    Issue invocation\n");
 
   // Process results.
   // Early exit before committing things to the client if anything failed.
@@ -1841,6 +1897,8 @@ iree_status_t LoadedExecutableInstance::BatchExecute(
           *(new EventInstance(EventInstance::Type::SIGNALLED));
     }
   }
+
+  printf("    Process result\n");
 
   return status;
 }

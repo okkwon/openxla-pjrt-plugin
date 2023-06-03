@@ -18,6 +18,7 @@ namespace {
 
 // Controls whether logging is printed to stderr. We may want to make this
 // more configurable in the future.
+//const bool LOGGING_ENABLED = true;
 const bool LOGGING_ENABLED = false;
 
 IREE_PRINTF_ATTRIBUTE(2, 3)

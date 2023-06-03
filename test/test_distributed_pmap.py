@@ -3,7 +3,7 @@ import logging
 import jax
 import sys
 
-# logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 def test_distributed_pmap(coordinator_address_, process_id_, num_processes_,
                           local_device_ids_):
