@@ -124,6 +124,9 @@ Status RunSPMDOptimizer(HloModule *hlo_module) {
     sharding_removal_pipeline.AddPass<HloDCE>();
     TF_RETURN_IF_ERROR(sharding_removal_pipeline.Run(hlo_module).status());
   }
+  // printf("GSPMD PARTITIONER DONE\n");
+  // printf("// ----- After\n%s\n", hlo_module->ToString().c_str());
+
   return OkStatus();
 }
 
