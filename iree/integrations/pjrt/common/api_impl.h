@@ -268,6 +268,7 @@ class EventInstance {
   }
 
   iree_status_t OnReady(PJRT_Event_OnReadyCallback callback, void* user_arg);
+  void WaitOn(iree_hal_fence_t* fence);
   ErrorInstance* error();
   bool is_ready();
 
@@ -280,6 +281,7 @@ class EventInstance {
   iree_status_t status_ = iree_ok_status();
   bool is_ready_;
   std::vector<std::pair<PJRT_Event_OnReadyCallback, void*>> pending_callbacks_;
+  std::unique_ptr<std::thread> signal_thread_;
 };
 
 //===----------------------------------------------------------------------===//

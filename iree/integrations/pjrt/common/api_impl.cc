@@ -484,8 +484,10 @@ void BufferInstance::BindApi(PJRT_Api* api) {
     IREE_TRACE_SCOPE0("PJRT_Buffer_ReadyEvent");
     BufferInstance* buffer = BufferInstance::Unwrap(args->buffer);
     printf("  buffer_view = %p\n", buffer->buffer_view());
-    return MakeError(
-        iree_make_status(IREE_STATUS_UNIMPLEMENTED, "PJRT_Buffer_ReadyEvent"));
+    auto event = new EventInstance(EventInstance::Type::EXTERNAL);
+    event->WaitOn(buffer->ready_fence());
+    args->event = reinterpret_cast<PJRT_Event*>(event);
+    return nullptr;
   };
   // TODO: Rework the API to be Aliases(b1, b2) to let the plugin explicitly
   // check for aliases.
@@ -1443,7 +1445,10 @@ EventInstance::EventInstance(Type type) : type_(type) {
   }
 }
 
-EventInstance::~EventInstance() { iree_status_ignore(status_); }
+EventInstance::~EventInstance() {
+  if (signal_thread_) signal_thread_->join();
+  iree_status_ignore(status_);
+}
 
 void EventInstance::BindApi(PJRT_Api* api) {
   api->PJRT_Event_Destroy = +[](PJRT_Event_Destroy_Args* args) -> PJRT_Error* {
@@ -1503,6 +1508,22 @@ iree_status_t EventInstance::OnReady(PJRT_Event_OnReadyCallback callback,
           : (PJRT_Error*)new ErrorInstance(iree_status_clone(local_status)),
       user_arg);
   return iree_ok_status();
+}
+
+void EventInstance::WaitOn(iree_hal_fence_t* fence) {
+  iree_hal_fence_retain(fence);
+  {
+    std::lock_guard<std::mutex> guard(lock_);
+    assert(signal_thread_ == nullptr && "WaitOn should only be called once!");
+    signal_thread_ = std::make_unique<std::thread>(
+        [](EventInstance* event_instance, iree_hal_fence_t* fence) {
+          iree_status_t wait_status =
+              iree_hal_fence_wait(fence, iree_infinite_timeout());
+          iree_hal_fence_release(fence);
+          event_instance->ExternalSignalReady(wait_status);
+        },
+        this, fence);
+  }
 }
 
 void EventInstance::ExternalSignalReady(iree_status_t status) {
