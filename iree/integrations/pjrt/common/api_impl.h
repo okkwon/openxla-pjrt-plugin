@@ -192,7 +192,7 @@ class DeviceInstance {
   static DeviceInstance* Unwrap(PJRT_DeviceDescription* device_description) {
     return reinterpret_cast<DeviceInstance*>(device_description);
   }
-
+  ClientInstance& client() { return client_; }
   bool is_addressable() { return true; }
   int local_hardware_id() { return -1; }
 
@@ -247,19 +247,7 @@ class DeviceInstance {
 
 class EventInstance {
  public:
-  enum class Type {
-    // An event that is always signalled.
-    SIGNALLED,
-
-    // An EXTERNAL event will have an outside caller invoke
-    // ExternalSignalReady() when it is ready.
-    // Any further OnReady callback will happen within the context of that
-    // call (which can be on any thread).
-    EXTERNAL,
-  };
-
-  // Default construction is always signalled.
-  EventInstance(Type type);
+  EventInstance(iree_hal_fence_t* fence);
   ~EventInstance();
   operator PJRT_Event*() { return reinterpret_cast<PJRT_Event*>(this); }
   static void BindApi(PJRT_Api* api);
@@ -268,16 +256,13 @@ class EventInstance {
   }
 
   iree_status_t OnReady(PJRT_Event_OnReadyCallback callback, void* user_arg);
-  void WaitOn(iree_hal_fence_t* fence);
   ErrorInstance* error();
   bool is_ready();
 
-  // For EXTERNAL events: Signals that the event is ready.
-  void ExternalSignalReady(iree_status_t status);
-
  private:
+  void SignalReady(iree_status_t status);
+
   std::mutex lock_;
-  Type type_;
   iree_status_t status_ = iree_ok_status();
   bool is_ready_;
   std::vector<std::pair<PJRT_Event_OnReadyCallback, void*>> pending_callbacks_;
