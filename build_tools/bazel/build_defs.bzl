@@ -27,7 +27,7 @@ def iree_pjrt_plugin_dylib(
             "PJRT_PLUGIN_BUILDING_LIBRARY",
         ] + defines,
         linkopts = [
-            "-Wl,--no-undefined",
+#            "-Wl,--no-undefined",
         ] + linkopts,
         deps = [
             "//iree/integrations/pjrt/common:impl",
