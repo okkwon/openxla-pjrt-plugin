@@ -6,6 +6,7 @@
 
 #include "iree/integrations/pjrt/common/api_impl.h"
 
+#include <chrono>
 #include <iostream>
 #include <optional>
 
@@ -2071,7 +2072,37 @@ iree_status_t LoadedExecutableInstance::BatchExecute(
 // Top-level API binding.
 //===----------------------------------------------------------------------===//
 
+static void WaitForDebugger() {
+  if (!CheckEnvVar("IREE_WAIT_PID") || !CheckEnvVar("OMPI_COMM_WORLD_RANK")) {
+    return;
+  }
+
+  int32_t pid = ParseEnvI32("IREE_WAIT_PID", -2);
+  int32_t rank = ParseEnvI32("OMPI_COMM_WORLD_RANK", -1);
+
+  if (pid < -1 || rank < 0) {
+    assert(0 && "PID must be >= -1 and rank must be >= 0");
+    return;
+  }
+
+  // When pid == -1, wait for a debugger for all processes. Otherwise,
+  // wait for a debugger for a specific rank.
+  if (pid != -1 && pid != rank) {
+    return;
+  }
+
+  using namespace std::chrono_literals;
+  bool is_ready = 0;
+  printf("Waiting for debugger to be attached on PID = %d. Set `is_ready=1`.\n",
+         getpid());
+  while (is_ready == 0) {
+    std::this_thread::sleep_for(10ms);
+  }
+}
+
 void BindMonomorphicApi(PJRT_Api* api) {
+  WaitForDebugger();
+
   api->struct_size = PJRT_Api_STRUCT_SIZE;
   api->priv = nullptr;
 
