@@ -45,7 +45,6 @@ cc_library(
     deps = [
         ":key_value_store",
         "@iree_core//runtime/src/iree/base",
-        "@iree_core//runtime/src/iree/base:tracing",
         "@iree_core//runtime/src/iree/hal",
     ],
 )

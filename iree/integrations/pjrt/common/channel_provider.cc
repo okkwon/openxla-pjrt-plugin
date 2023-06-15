@@ -8,8 +8,6 @@
 
 #include <stdlib.h>
 
-#include "iree/base/tracing.h"
-
 namespace iree::pjrt {
 typedef struct channel_provider_t {
   iree_hal_resource_t resource;
